@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tanjir Studio — Rezervacije</title>
+<style>
+  :root{
+    --accent:#FFB74D;
+    --dark:rgba(0,0,0,0.42);
+    --beige:#F5E6D3;
+    --text:#222;
+    --light-gray:#f5f5f5;
+    --gray:#ddd;
+    --success:#4CAF50;
+    --error:#ff4444;
+  }
+  *{box-sizing:border-box}
+  body,html{margin:0;padding:0;height:100%;font-family:Arial,Helvetica,sans-serif;color:var(--text);background:var(--beige);overflow:hidden;}
+  
+  .page{min-height:100vh;background:var(--beige);position:relative;}
+  
+  .step{
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    display:none;
+  }
+  
+  .step.active{
+    display:block;
+  }
+  
+  #step1 {
+    display:flex;
+    flex-direction:row;
+    z-index:10;
+  }
+  
+  .page-title {
+    position:absolute;
+    top:30px;
+    left:0;
+    width:100%;
+    text-align:center;
+    color:white;
+    font-size:28px;
+    font-weight:bold;
+    z-index:2;
+    text-shadow:0 2px 8px rgba(0,0,0,0.8);
+  }
+  
+  .tile{
+    flex:1;
+    position:relative;
+    background-size:cover;
+    background-position:center;
+    display:flex;
+    overflow:hidden;
+  }
+  .tile.left{justify-content:flex-start;align-items:center;}
+  .tile.right{justify-content:flex-end;align-items:center;}
+  .tile.center{justify-content:center;align-items:center;}
+  .tile::before{
+    content:"";position:absolute;inset:0;background:var(--dark);z-index:0;
+  }
+  .tile .box{
+    position:relative;
+    z-index:1;
+    text-align:center;
+    width:auto;
+    max-width:400px;
+    padding:30px;
+    margin:0 50px;
+    background:rgba(0,0,0,0.7);
+    border-radius:15px;
+  }
+  .tile h2{
+    margin:0 0 20px 0;
+    color:#fff;
+    font-size:32px;
+    line-height:1.2;
+    text-shadow:0 2px 8px rgba(0,0,0,0.8);
+  }
+  .cta{
+    display:inline-block;
+    padding:15px 30px;
+    border-radius:8px;
+    background:var(--accent);
+    color:#000;
+    font-weight:700;
+    text-decoration:none;
+    box-shadow:0 6px 18px rgba(0,0,0,0.12);
+    cursor:pointer;
+    font-size:18px;
+    border:none;
+  }
+  .cta:active{transform:translateY(1px)}
+  
+  #step2 {
+    background:var(--beige);
+    z-index:20;
+    padding:80px 20px 40px;
+    overflow:auto;
+  }
+  
+  .selected-workshop{
+    text-align:center;
+    font-size:24px;
+    color:var(--accent);
+    margin-bottom:10px;
+    font-weight:bold;
+  }
+  
+  .calendar{
+    width:100%;
+    max-width:1000px;
+    margin:0 auto;
+  }
+  
+  .calendar-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:30px;
+  }
+  
+  .week-days {
+    display:grid;
+    grid-template-columns:repeat(7, 1fr);
+    gap:8px;
+    margin-bottom:30px;
+  }
+
+  .week-day {
+    text-align:center;
+    padding:15px 8px;
+    border:2px solid var(--gray);
+    border-radius:10px;
+    cursor:pointer;
+    background:white;
+    transition:all 0.3s ease;
+    position:relative;
+  }
+
+  .week-day:hover {
+    transform:translateY(-2px);
+    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+  }
+
+  .week-day.available {
+    background-color:var(--accent);
+    font-weight:bold;
+    border-color:var(--accent);
+    color:#000;
+  }
+
+  .week-day.unavailable {
+    background-color:var(--gray);
+    color:#999;
+    cursor:not-allowed;
+  }
+
+  .week-day.selected {
+    background-color:var(--success);
+    color:white;
+    border-color:var(--success);
+  }
+
+  .week-day.available::after {
+    content: "▼";
+    position:absolute;
+    bottom:5px;
+    right:8px;
+    font-size:12px;
+    color:rgba(0,0,0,0.6);
+  }
+
+  .week-day.selected::after {
+    content: "▼";
+    position:absolute;
+    bottom:5px;
+    right:8px;
+    font-size:12px;
+    color:white;
+  }
+
+  .week-day-name {
+    font-size:12px;
+    font-weight:bold;
+    margin-bottom:5px;
+  }
+
+  .week-day-date {
+    font-size:18px;
+    font-weight:bold;
+    margin-bottom:5px;
+  }
+
+  .week-day-action {
+    font-size:10px;
+    color:#666;
+    background:rgba(255,255,255,0.7);
+    padding:2px 6px;
+    border-radius:10px;
+    display:inline-block;
+  }
+
+  .week-day.available .week-day-action {
+    background:rgba(0,0,0,0.1);
+    color:#000;
+  }
+
+  .time-dropdown {
+    display:none;
+    position:absolute;
+    top:calc(100% + 5px);
+    left:0;
+    right:0;
+    background:white;
+    border:2px solid var(--accent);
+    border-radius:10px;
+    z-index:100;
+    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+    max-height:300px;
+    overflow-y:auto;
+  }
+
+  /* ДЕСКТОП: hover показывает dropdown */
+  @media (hover: hover) and (pointer: fine) {
+    .week-day.available:hover .time-dropdown {
+      display:block;
+    }
+  }
+
+  /* МОБИЛЬНЫЕ: клик показывает dropdown */
+  .week-day.selected .time-dropdown {
+    display:block;
+  }
+
+  .time-dropdown-slot {
+    padding:12px 8px;
+    border-bottom:1px solid var(--gray);
+    cursor:pointer;
+    text-align:center;
+    transition:background 0.2s ease;
+  }
+
+  .time-dropdown-slot:hover {
+    background:var(--light-gray);
+  }
+
+  .time-dropdown-slot:last-child {
+    border-bottom:none;
+  }
+
+  .time-dropdown-slot.available {
+    background:var(--accent);
+    font-weight:bold;
+  }
+
+  .time-dropdown-slot.full {
+    background:var(--gray);
+    color:#999;
+    cursor:not-allowed;
+  }
+
+  .slot-time {
+    font-size:16px;
+    font-weight:bold;
+    margin-bottom:4px;
+  }
+
+  .slot-availability {
+    font-size:12px;
+    color:#666;
+  }
+
+  .time-dropdown-slot.available .slot-availability {
+    color:#000;
+  }
+
+  .form-group{margin-bottom:20px;}
+  .form-group label{display:block;margin-bottom:5px;font-weight:bold;}
+  .form-group input, .form-group select{
+    width:100%;
+    padding:12px;
+    border:1px solid var(--gray);
+    border-radius:4px;
+  }
+  .form-group.required label::after{content:" *";color:red;}
+  .navigation{
+    display:flex;
+    justify-content:space-between;
+    margin-top:30px;
+  }
+  .btn{
+    padding:12px 24px;
+    border:none;
+    border-radius:4px;
+    cursor:pointer;
+    font-weight:bold;
+    font-size:16px;
+  }
+  .btn-primary{background-color:var(--accent);color:black;}
+  .btn-secondary{background-color:var(--gray);}
+  .btn:disabled{opacity:0.5;cursor:not-allowed;}
+  .step-title{
+    text-align:center;
+    margin-bottom:40px;
+    font-size:32px;
+    font-weight:bold;
+  }
+
+  .modal{
+    display:none;
+    position:fixed;
+    top:0;left:0;
+    width:100%;height:100%;
+    background:rgba(0,0,0,0.5);
+    z-index:10000;
+    align-items:center;
+    justify-content:center;
+  }
+  .modal-content{
+    background:white;
+    padding:30px;
+    border-radius:10px;
+    max-width:500px;
+    width:90%;
+    text-align:center;
+  }
+  .modal-buttons{
+    display:flex;
+    gap:10px;
+    justify-content:center;
+    margin-top:20px;
+  }
+
+  .contact-section{
+    text-align:center;
+    margin:40px 0 20px 0;
+    padding:20px;
+    border-top:1px solid var(--gray);
+  }
+
+  .contact-info {
+    font-size:18px;
+    font-weight:bold;
+    color:var(--text);
+    margin:15px 0;
+  }
+
+  .phone-number {
+    font-size:20px;
+    color:var(--accent);
+    font-weight:bold;
+    margin:10px 0;
+  }
+
+  .participants-info{
+    background:var(--light-gray);
+    padding:15px;
+    border-radius:8px;
+    margin:15px 0;
+    text-align:left;
+  }
+
+  .messenger-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 15px 0;
+  }
+  
+  .messenger-option {
+    padding: 12px;
+    border: 2px solid var(--gray);
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    background: white;
+  }
+  
+  .messenger-option.selected {
+    border-color: var(--accent);
+    background: var(--light-gray);
+  }
+  
+  .messenger-option input {
+    display: none;
+  }
+
+  /* МОБИЛЬНЫЕ СТИЛИ */
+  @media(max-width:768px){
+    #step1 {
+      flex-direction:column;
+    }
+    .tile{
+      height:33.33vh;
+      min-height:33.33vh;
+    }
+    .tile .box{
+      margin:10px;
+      max-width:280px;
+      padding:20px;
+    }
+    .tile h2{
+      font-size:20px;
+    }
+    .week-days{
+      grid-template-columns:repeat(2, 1fr);
+    }
+    .page-title {
+      font-size:22px;
+      top:15px;
+    }
+    
+    /* На мобильных скрываем hover эффект */
+    .week-day.available:hover .time-dropdown {
+      display: none !important;
+    }
+    
+    /* На мобильных dropdown показывается под выбранным днем */
+    .week-day.selected .time-dropdown {
+      display: block !important;
+      position: relative;
+      top: auto;
+      margin-top: 10px;
+      border: 2px solid var(--accent);
+      border-radius: 10px;
+    }
+    
+    .week-day.available {
+      cursor: pointer;
+    }
+  }
+
+  @media(max-width:480px){
+    .week-days{
+      grid-template-columns:1fr;
+    }
+    .tile h2{
+      font-size:18px;
+    }
+    .cta{
+      padding:12px 20px;
+      font-size:16px;
+    }
+    .page-title {
+      font-size:20px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="step active" id="step1">
+    <div class="page-title">Izaberite po vašem interesu</div>
+    <div class="tile left" id="handbuild" style="background-image:url('images/handbuild.jpg')">
+      <div class="box">
+        <h2>Master klas<br>ručne izrade</h2>
+        <button class="cta" onclick="selectWorkshop('handbuild')">Rezerviši sada</button>
+      </div>
+    </div>
+
+    <div class="tile center" id="kids" style="background-image:url('images/kids.jpg')">
+      <div class="box">
+        <h2>Master klas<br>za decu</h2>
+        <button class="cta" onclick="selectWorkshop('kids')">Rezerviši sada</button>
+      </div>
+    </div>
+
+    <div class="tile right" id="wheel" style="background-image:url('images/wheel.jpg')">
+      <div class="box">
+        <h2>Master klas<br>grnčarskog točka</h2>
+        <button class="cta" onclick="selectWorkshop('wheel')">Rezerviši sada</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="step" id="step2">
+    <div class="selected-workshop" id="selected-workshop"></div>
+    <div class="step-title">Izaberite datum i vreme</div>
+    
+    <div class="calendar">
+      <div class="calendar-header">
+        <button class="btn btn-secondary" onclick="changeWeek(-1)">◄ Prethodna</button>
+        <h3 id="current-week"></h3>
+        <button class="btn btn-secondary" onclick="changeWeek(1)">Sledeća ►</button>
+      </div>
+      
+      <div class="week-days" id="week-days"></div>
+    </div>
+
+    <div class="contact-section">
+      <div class="contact-info">Ako niste pronašli odgovarajuće vreme za master klas?</div>
+      <div class="contact-info">Kontaktirajte nas:</div>
+      <div class="phone-number">+381 61 112 1592</div>
+    </div>
+
+    <div class="navigation">
+      <button class="btn btn-secondary" onclick="showStep('step1')">Nazad</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="modal" id="booking-modal">
+  <div class="modal-content">
+    <h3 id="modal-title">Završite rezervaciju</h3>
+    
+    <div class="participants-info">
+      <p><strong>Master klas:</strong> <span id="modal-workshop"></span></p>
+      <p><strong>Datum:</strong> <span id="modal-date"></span></p>
+      <p><strong>Vreme:</strong> <span id="modal-time"></span></p>
+      <p><strong>Broj mesta:</strong> 
+        <select id="modal-participants" style="padding:5px; margin-left:10px;">
+          <option value="1">1 mesto</option>
+          <option value="2">2 mesta</option>
+          <option value="3">3 mesta</option>
+        </select>
+      </p>
+      <p><strong>Slobodno mesta:</strong> <span id="modal-available"></span></p>
+    </div>
+
+    <div style="text-align:left;">
+      <div class="form-group required">
+        <label for="client-name">Ime i prezime *</label>
+        <input type="text" id="client-name" placeholder="Unesite vaše ime i prezime" required>
+      </div>
+      
+      <div class="form-group required">
+        <label for="client-phone">Broj telefona *</label>
+        <input type="tel" id="client-phone" placeholder="+381..." required>
+      </div>
+
+      <div class="form-group required">
+        <label>Preferirani način kontakta *</label>
+        <div class="messenger-options">
+          <label class="messenger-option" onclick="selectMessenger(this, 'viber')">
+            <input type="radio" name="messenger" value="viber" required> Viber
+          </label>
+          <label class="messenger-option" onclick="selectMessenger(this, 'whatsapp')">
+            <input type="radio" name="messenger" value="whatsapp" required> WhatsApp
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-buttons">
+      <button class="btn btn-secondary" onclick="closeModal()">Otkaži</button>
+      <button class="btn btn-primary" onclick="submitBooking()">Potvrdi rezervaciju</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzg_vJpXKudtNTT1IHA4FeHrAraVntAADA0cE4Lkxn3qO2acu0-D3sFsR9PNe4n8rvyug/exec';
+
+const WORKSHOP_TYPES = {
+  'wheel': { name: 'Grnčarski točak' },
+  'handbuild': { name: 'Ručna izrada' },
+  'kids': { name: 'Master klas za decu' }
+};
+
+let currentState = {
+  selectedType: null,
+  selectedDate: null,
+  selectedTime: null,
+  participantsCount: 1,
+  currentWeek: new Date(),
+  calendarEvents: {},
+  currentSlot: null,
+  selectedMessenger: null
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+  loadSchedule();
+});
+
+async function loadSchedule() {
+  try {
+    const response = await fetch(APPS_SCRIPT_URL);
+    const data = await response.json();
+    
+    if (data.status === 'ok') {
+      currentState.calendarEvents = data.schedule;
+      renderCalendar();
+    } else {
+      createTestData();
+    }
+  } catch (error) {
+    console.error('Greška pri povezivanju:', error);
+    createTestData();
+  }
+}
+
+function createTestData() {
+  const today = new Date();
+  const testData = {};
+  
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(today);
+    date.setDate(today.getDate() + i);
+    const dateString = date.toISOString().split('T')[0];
+    
+    testData[dateString] = [
+      { type: 'wheel', time: '10:00', max: 4, booked: 2 },
+      { type: 'wheel', time: '14:00', max: 4, booked: 0 },
+      { type: 'wheel', time: '18:00', max: 4, booked: 1 },
+      { type: 'handbuild', time: '11:00', max: 6, booked: 3 },
+      { type: 'handbuild', time: '16:00', max: 6, booked: 0 },
+      { type: 'kids', time: '10:30', max: 8, booked: 5 },
+      { type: 'kids', time: '15:00', max: 8, booked: 2 }
+    ];
+  }
+  
+  currentState.calendarEvents = testData;
+  renderCalendar();
+}
+
+function showStep(stepId) {
+  document.querySelectorAll('.step').forEach(step => step.classList.remove('active'));
+  document.getElementById(stepId).classList.add('active');
+}
+
+function selectWorkshop(type) {
+  currentState.selectedType = type;
+  document.getElementById('selected-workshop').textContent = WORKSHOP_TYPES[type].name;
+  showStep('step2');
+  loadSchedule();
+}
+
+function renderCalendar() {
+  const weekStart = new Date(currentState.currentWeek);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+  
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+
+  document.getElementById('current-week').textContent = 
+    `${formatDate(weekStart)} - ${formatDate(weekEnd)}`;
+
+  const weekDaysContainer = document.getElementById('week-days');
+  weekDaysContainer.innerHTML = '';
+
+  const dayNames = ['Nedelja', 'Ponedeljak', 'Utorak', 'Sreda', 'Četvrtak', 'Petak', 'Subota'];
+
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(weekStart);
+    day.setDate(day.getDate() + i);
+    const dateString = day.toISOString().split('T')[0];
+    
+    const dayElement = document.createElement('div');
+    dayElement.className = 'week-day';
+    dayElement.setAttribute('data-date', dateString);
+    dayElement.innerHTML = `
+      <div class="week-day-name">${dayNames[i]}</div>
+      <div class="week-day-date">${day.getDate()}</div>
+      <div class="week-day-action">Kliknite za izbor</div>
+    `;
+    
+    const hasEvents = currentState.calendarEvents[dateString] && 
+      currentState.calendarEvents[dateString].some(slot => slot.type === currentState.selectedType);
+    
+    const today = new Date().toISOString().split('T')[0];
+    const isToday = dateString === today;
+    const isFuture = day >= new Date().setHours(0,0,0,0);
+    
+    if (hasEvents && (isToday || isFuture)) {
+      dayElement.classList.add('available');
+      
+      const timeDropdown = document.createElement('div');
+      timeDropdown.className = 'time-dropdown';
+      
+      // Рендерим временные слоты сразу
+      const events = currentState.calendarEvents[dateString] || [];
+      const workshopEvents = events.filter(slot => slot.type === currentState.selectedType);
+      
+      workshopEvents.sort((a, b) => {
+        const timeA = a.time.replace(':', '');
+        const timeB = b.time.replace(':', '');
+        return timeA - timeB;
+      });
+
+      if (workshopEvents.length === 0) {
+        timeDropdown.innerHTML = '<div class="time-dropdown-slot unavailable" style="text-align:center; padding:15px;">Nema termina</div>';
+      } else {
+        workshopEvents.forEach(slot => {
+          const availableSlots = slot.max - slot.booked;
+          const isTimePassed = isTimeSlotPassed(dateString, slot.time);
+          const slotElement = document.createElement('div');
+          
+          if (availableSlots > 0 && !isTimePassed) {
+            slotElement.className = 'time-dropdown-slot available';
+            slotElement.innerHTML = `
+              <div class="slot-time">${slot.time}</div>
+              <div class="slot-availability">Slobodnih mesta: ${availableSlots}</div>
+            `;
+            
+            // Обработчик для времени - открывает модальное окно
+            slotElement.addEventListener('click', function(e) {
+              e.stopPropagation();
+              currentState.selectedDate = dateString;
+              showBookingModal(slot, availableSlots, slot.max);
+            });
+            
+          } else {
+            slotElement.className = 'time-dropdown-slot full';
+            slotElement.innerHTML = `
+              <div class="slot-time">${slot.time}</div>
+              <div class="slot-availability">${isTimePassed ? 'Vreme je prošlo' : 'Nema slobodnih mesta'}</div>
+            `;
+          }
+          
+          timeDropdown.appendChild(slotElement);
+        });
+      }
+      
+      dayElement.appendChild(timeDropdown);
+      
+      // Обработчик для дня - только для мобильных
+      if (window.matchMedia('(max-width: 768px)').matches) {
+        dayElement.addEventListener('click', function(e) {
+          if (!e.target.closest('.time-dropdown-slot')) {
+            e.stopPropagation();
+            toggleDateSelection(dateString, dayElement);
+          }
+        });
+      }
+      
+    } else {
+      dayElement.classList.add('unavailable');
+    }
+    
+    weekDaysContainer.appendChild(dayElement);
+  }
+
+  // Закрываем все выпадающие списки при клике вне календаря (только для мобильных)
+  if (window.matchMedia('(max-width: 768px)').matches) {
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.week-day')) {
+        document.querySelectorAll('.week-day.selected').forEach(day => {
+          day.classList.remove('selected');
+        });
+      }
+    });
+  }
+}
+
+function toggleDateSelection(date, element) {
+  document.querySelectorAll('.week-day.selected').forEach(day => {
+    if (day !== element) {
+      day.classList.remove('selected');
+    }
+  });
+  
+  if (element.classList.contains('selected')) {
+    element.classList.remove('selected');
+    currentState.selectedDate = null;
+  } else {
+    element.classList.add('selected');
+    currentState.selectedDate = date;
+  }
+}
+
+function isTimeSlotPassed(dateString, timeString) {
+  const today = new Date().toISOString().split('T')[0];
+  if (dateString !== today) return false;
+  
+  const now = new Date();
+  const [hours, minutes] = timeString.split(':');
+  const slotTime = new Date();
+  slotTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+  
+  return now > slotTime;
+}
+
+function selectMessenger(element, messenger) {
+  currentState.selectedMessenger = messenger;
+  document.querySelectorAll('.messenger-option').forEach(opt => opt.classList.remove('selected'));
+  element.classList.add('selected');
+  element.querySelector('input').checked = true;
+}
+
+function showBookingModal(slot, availableSlots, maxSlots) {
+  currentState.selectedTime = slot.time;
+  currentState.currentSlot = slot;
+  
+  document.getElementById('modal-workshop').textContent = WORKSHOP_TYPES[currentState.selectedType].name;
+  document.getElementById('modal-date').textContent = formatDateForDisplay(currentState.selectedDate);
+  document.getElementById('modal-time').textContent = slot.time;
+  document.getElementById('modal-available').textContent = availableSlots + ' mesta';
+  
+  const select = document.getElementById('modal-participants');
+  select.innerHTML = '';
+  for (let i = 1; i <= Math.min(availableSlots, 5); i++) {
+    select.innerHTML += '<option value="' + i + '">' + i + ' mesto' + (i > 1 ? 'a' : '') + '</option>';
+  }
+  
+  currentState.selectedMessenger = null;
+  document.querySelectorAll('.messenger-option').forEach(opt => {
+    opt.classList.remove('selected');
+    opt.querySelector('input').checked = false;
+  });
+  
+  document.getElementById('client-name').value = '';
+  document.getElementById('client-phone').value = '';
+  
+  document.getElementById('booking-modal').style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('booking-modal').style.display = 'none';
+}
+
+async function submitBooking() {
+  const name = document.getElementById('client-name').value.trim();
+  const phone = document.getElementById('client-phone').value.trim();
+  const participants = parseInt(document.getElementById('modal-participants').value);
+  
+  if (!name || !phone) {
+    alert('Molimo popunite obavezna polja (ime i telefon)');
+    return;
+  }
+  
+  if (!currentState.selectedMessenger) {
+    alert('Molimo izaberite način kontakta');
+    return;
+  }
+
+  const bookingData = {
+    workshop: WORKSHOP_TYPES[currentState.selectedType].name,
+    date: currentState.selectedDate,
+    time: currentState.selectedTime,
+    participants: participants,
+    clientName: name,
+    clientPhone: phone,
+    messenger: currentState.selectedMessenger
+  };
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bookingData)
+    });
+
+    const result = await response.json();
+    
+    if (result.status === 'success' || result.success) {
+      alert('Uspešno ste rezervisali! Kontaktiraćemo vas putem ' + 
+            (currentState.selectedMessenger === 'viber' ? 'Viber-a' : 'WhatsApp-a') + 
+            ' za potvrdu.');
+      closeModal();
+      loadSchedule();
+    } else {
+      alert('Greška pri rezervaciji: ' + (result.error || 'Nepoznata greška'));
+    }
+  } catch (error) {
+    console.error('Greška:', error);
+    alert('Greška pri slanju podataka. Proverite internet konekciju.');
+  }
+}
+
+function changeWeek(direction) {
+  currentState.currentWeek.setDate(currentState.currentWeek.getDate() + direction * 7);
+  renderCalendar();
+}
+
+function formatDate(date) {
+  const months = ['januar', 'februar', 'mart', 'april', 'maj', 'jun', 'jul', 'avgust', 'septembar', 'oktobar', 'novembar', 'decembar'];
+  return `${date.getDate()}. ${months[date.getMonth()]}`;
+}
+
+function formatDateForDisplay(dateString) {
+  const [year, month, day] = dateString.split('-');
+  const months = ['januar', 'februar', 'mart', 'april', 'maj', 'jun', 'jul', 'avgust', 'septembar', 'oktobar', 'novembar', 'decembar'];
+  return `${parseInt(day)}. ${months[parseInt(month) - 1]} ${year}.`;
+}
+</script>
+</body>
+</html>
